@@ -29,7 +29,6 @@ const POKEMON_NAMES_KO = {
   145: "썬더", 146: "파이어", 147: "미뇽", 148: "신뇽", 149: "망나뇽", 150: "뮤츠", 151: "뮤"
 };
 
-// 8비트 레트로 사운드 효과 (Web Audio API)
 const playSfx = (type) => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -53,7 +52,7 @@ const playSfx = (type) => {
       }
       case 'success': {
         const now = ctx.currentTime;
-        const notes = [293.66, 349.23, 440.00, 587.33]; // D4, F4, A4, D5
+        const notes = [293.66, 349.23, 440.00, 587.33];
         notes.forEach((freq, idx) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -106,34 +105,24 @@ const playSfx = (type) => {
 };
 
 export default function App() {
-  // 상태 관리
   const [currentPokemon, setCurrentPokemon] = useState(null);
   const [choices, setChoices] = useState([]);
   const [silhouetteMode, setSilhouetteMode] = useState(true);
   const [loading, setLoading] = useState(true);
   const [caughtList, setCaughtList] = useState([]);
-  
-  // 뷰 전환: 'quiz' / 'pokedex'
   const [currentTab, setCurrentTab] = useState('quiz');
-  
-  // 애니메이션 & 모달 상태
-  const [captureState, setCaptureState] = useState('idle'); // 'idle' | 'throwing' | 'shaking' | 'success' | 'fail'
+  const [captureState, setCaptureState] = useState('idle'); 
   const [selectedPokedexItem, setSelectedPokedexItem] = useState(null);
-  
-  // 도감 상세정보 스토리 비동기 조회 상태
   const [speciesLoading, setSpeciesLoading] = useState(false);
   const [speciesInfo, setSpeciesInfo] = useState({ description: "", category: "" });
-
   const [win95Notice, setWin95Notice] = useState({ show: false, title: "", message: "", type: "info" });
   const [startMenuOpen, setStartMenuOpen] = useState(false);
   const [sysTime, setSysTime] = useState("");
 
-  // 모바일 제스처 변수
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const [touchDelta, setTouchDelta] = useState({ x: 0, y: 0 });
   const [isPullingDown, setIsPullingDown] = useState(false);
 
-  // 시계 동기화
   useEffect(() => {
     const updateTime = () => {
       const d = new Date();
@@ -148,7 +137,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // 도감 데이터 로드
   useEffect(() => {
     const saved = localStorage.getItem('win95_caught_pokemon');
     if (saved) {
@@ -165,14 +153,12 @@ export default function App() {
     localStorage.setItem('win95_caught_pokemon', JSON.stringify(list));
   };
 
-  // 포켓몬 퀴즈 무작위 로드 (1~151번 완전 매칭)
   const fetchRandomPokemon = async () => {
     setLoading(true);
     setCaptureState('idle');
     setSilhouetteMode(true);
     
     try {
-      // 1세대 (1~151번 범위)에서 균일하게 랜덤 ID 생성
       const validIds = Object.keys(POKEMON_NAMES_KO).map(Number);
       const randomId = validIds[Math.floor(Math.random() * validIds.length)];
       
@@ -180,13 +166,11 @@ export default function App() {
       if (!res.ok) throw new Error("포켓몬 기본 데이터를 호출하지 못했습니다.");
       const data = await res.json();
       
-      // 정답 한국어 이름 추출
       const correctName = POKEMON_NAMES_KO[randomId];
       if (!correctName) {
         throw new Error("정치 이름 데이터가 손상되었습니다.");
       }
       
-      // 오답 목록 (도감 데이터에서 무작위 선택하여 중복 배제)
       const wrongChoices = [];
       while (wrongChoices.length < 3) {
         const randId = validIds[Math.floor(Math.random() * validIds.length)];
@@ -196,7 +180,6 @@ export default function App() {
         }
       }
       
-      // 보기 셔플
       const allChoices = [correctName, ...wrongChoices].sort(() => Math.random() - 0.5);
       
       setCurrentPokemon({
@@ -221,7 +204,6 @@ export default function App() {
     fetchRandomPokemon();
   }, []);
 
-  // 도감에서 포켓몬 선택 시, 해당 포켓몬의 공식 한국어 설명(스토리)을 PokéAPI에서 동적 로드
   useEffect(() => {
     if (!selectedPokedexItem) {
       setSpeciesInfo({ description: "", category: "" });
@@ -235,16 +217,13 @@ export default function App() {
         if (!res.ok) throw new Error("도감 설명 호출 실패");
         const data = await res.json();
 
-        // 1. 한국어 도감 설명 탐색
         const koreanFlavorEntry = data.flavor_text_entries.find(
           entry => entry.language.name === "ko"
         );
-        // 제어 문자 교정 (\n, \f 등을 자연스러운 띄어쓰기로 변환)
         const cleanDescription = koreanFlavorEntry 
           ? koreanFlavorEntry.flavor_text.replace(/\n|\f/g, " ") 
           : "아직 알려진 도감 정보가 기술되지 않은 희귀 포켓몬입니다.";
 
-        // 2. 한국어 분류(씨앗포켓몬 등) 탐색
         const koreanGenusEntry = data.genera.find(
           g => g.language.name === "ko"
         );
@@ -270,21 +249,18 @@ export default function App() {
     fetchSpeciesData();
   }, [selectedPokedexItem]);
 
-  // 공통 안내문 다이얼로그
   const triggerNotice = (title, message, type = "info") => {
     setWin95Notice({ show: true, title, message, type });
   };
 
-  // 포획 정답 제출 처리
   const handleAnswerSubmit = (selectedAnswer) => {
     if (captureState !== 'idle') return;
     
     if (selectedAnswer === currentPokemon.name) {
       playSfx('success');
       setCaptureState('throwing');
-      setSilhouetteMode(false); // 실루엣 컬러로 잠금 해제
+      setSilhouetteMode(false);
 
-      // 3D 몬스터볼 포획 사이클 연출
       setTimeout(() => {
         setCaptureState('shaking');
         playSfx('shake');
@@ -295,7 +271,6 @@ export default function App() {
         setTimeout(() => {
           setCaptureState('success');
           
-          // 소지 확인 후 도감 추가
           if (!caughtList.some(item => item.id === currentPokemon.id)) {
             const newList = [...caughtList, {
               ...currentPokemon,
@@ -304,7 +279,6 @@ export default function App() {
             saveCaughtList(newList);
           }
 
-          // 1.8초 대기 후 다음 포켓몬 자동 로딩
           setTimeout(() => {
             fetchRandomPokemon();
           }, 1800);
@@ -319,7 +293,6 @@ export default function App() {
     }
   };
 
-  // 터치 제스처 연산
   const handleTouchStart = (e) => {
     const touch = e.touches[0];
     setTouchStart({ x: touch.clientX, y: touch.clientY });
@@ -343,13 +316,11 @@ export default function App() {
     const xThreshold = 90;
     const yThreshold = 110;
 
-    // 아래로 스와이프: 포켓몬 새로고침
     if (currentTab === 'quiz' && isPullingDown && touchDelta.y > yThreshold) {
       playSfx('click');
       fetchRandomPokemon();
     }
 
-    // 좌우 스와이프: 도감 탭 트랜지션
     if (touchDelta.x < -xThreshold && currentTab === 'quiz') {
       playSfx('click');
       setCurrentTab('pokedex');
@@ -372,7 +343,6 @@ export default function App() {
       onTouchEnd={handleTouchEnd}
     >
       
-      {/* 1. 상단 타이틀바 / 탭 네비게이션 */}
       <header className="win95-outset p-1 flex justify-between items-center bg-[#c0c0c0] shrink-0 z-20">
         <div className="flex items-center gap-1.5 pl-1">
           <div className="w-5 h-5 bg-red-600 rounded-full border border-black relative overflow-hidden flex items-center justify-center">
@@ -408,7 +378,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. 아래로 스와이프 리프레시 애니메이션 헤더 */}
       {isPullingDown && currentTab === 'quiz' && (
         <div 
           className="absolute left-0 right-0 bg-[#c0c0c0] border-b-2 border-b-[#808080] flex flex-col items-center justify-center py-2 transition-all duration-75 z-10 text-xs text-black"
@@ -431,7 +400,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 3. 데스크톱 내부 뷰 영역 */}
+      {}
       <main className="flex-1 w-full relative overflow-hidden p-2 flex justify-center items-center">
         
         {/* ==================== 포획 퀴즈 화면 (Tab: Quiz) ==================== */}
@@ -441,7 +410,6 @@ export default function App() {
           }`}
         >
           <div className="win95-outset w-full max-w-sm flex flex-col bg-[#c0c0c0] shadow-xl max-h-full">
-            {/* 상단 윈도우 명칭 */}
             <div className="win95-titlebar p-1 select-none flex items-center justify-between">
               <span className="text-xs font-bold tracking-wider truncate">Wild_Pokemon_Encounter.dll</span>
               <div className="flex gap-1">
@@ -455,47 +423,57 @@ export default function App() {
               <span>상태: 야생 출현 확인</span>
             </div>
 
-            {/* 메인 콘텐츠 바디 */}
             <div className="p-3 flex-1 overflow-y-auto flex flex-col justify-between gap-2.5 min-h-0 bg-[#e0e0e0]">
               {loading ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-12">
                   <div className="text-4xl animate-spin mb-4">⏳</div>
                   <p className="text-xs font-bold text-gray-800 animate-pulse">PokéAPI 데이터베이스 정렬 중...</p>
-                  <p className="text-[10px] text-gray-500 mt-2">스크린을 아래로 스와이프하면 재탐색됩니다.</p>
                 </div>
               ) : (
                 <>
-                  {/* 실루엣 투명 보드 */}
-                  <div className="win95-inset relative bg-gradient-to-b from-slate-900 to-zinc-950 flex-1 min-h-[160px] max-h-[25vh] flex items-center justify-center overflow-hidden rounded">
-                    <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
+                  {/* ★ 가독성과 웅장함이 극대화된 다크 패턴 스크린 + 아우라 조명 광원 연출 ★ */}
+                  <div className="win95-inset relative bg-gradient-to-b from-slate-950 via-slate-900 to-zinc-950 flex-1 min-h-[160px] max-h-[25vh] flex items-center justify-center overflow-hidden rounded">
+                    
+                    {/* 레트로 기하학적 미세 도트 격자 무늬 배경 */}
+                    <div className="absolute inset-0 opacity-15 pointer-events-none" style={{
                       backgroundImage: 'radial-gradient(#ffffff 2px, transparent 2px)',
                       backgroundSize: '16px 16px'
                     }}></div>
+
+                    {/* 실루엣 윤곽의 시인성을 극적으로 높여주는 화이트 및 네온 아우라 광원 */}
+                    <div className="absolute w-36 h-36 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
+                    <div className="absolute w-20 h-20 rounded-full bg-blue-500/10 blur-xl pointer-events-none"></div>
+
+                    {/* 프레임 테두리 */}
+                    <div className="absolute inset-1.5 border border-white/5 rounded pointer-events-none"></div>
 
                     <span className="absolute top-2 left-2 text-[9px] text-green-400 font-mono tracking-widest bg-black/80 px-1.5 py-0.5 rounded border border-green-800">
                       INDEX: {String(currentPokemon?.id).padStart(3, '0')}
                     </span>
 
+                    {/* 이미지 렌더링 - 실루엣 모드일 때 광채 외곽선을 부여하여 뚜렷하게 식별 가능 */}
                     {captureState === 'idle' || captureState === 'throwing' ? (
                       <img 
                         src={currentPokemon?.sprite} 
                         alt="Wild Silhouette"
                         className={`w-32 h-32 md:w-36 md:h-36 object-contain transition-all duration-300 ${
-                          silhouetteMode ? 'brightness-0 contrast-200 scale-95' : 'scale-100'
+                          silhouetteMode 
+                            ? 'brightness-0 contrast-200 drop-shadow-[0_0_15px_rgba(255,255,255,0.7)] scale-95' 
+                            : 'scale-100 drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]'
                         }`}
                       />
                     ) : null}
 
-                    {/* 포획 모션 그래픽 피드백 */}
+                    {/* 포획 애니메이션 오버레이 */}
                     {captureState !== 'idle' && (
-                      <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/70">
+                      <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#1e293b]/85">
                         <div className="flex flex-col items-center">
                           <div className={`w-14 h-14 relative transition-all duration-300 ${
                             captureState === 'throwing' ? 'animate-bounce scale-110' : ''
                           } ${
                             captureState === 'shaking' ? 'animate-pulse' : ''
                           }`}>
-                            <svg viewBox="0 0 100 100" className={`w-full h-full drop-shadow-xl ${
+                            <svg viewBox="0 0 100 100" className={`w-full h-full drop-shadow-lg ${
                               captureState === 'shaking' ? 'animate-[spin_1.5s_linear_infinite]' : ''
                             }`}>
                               <circle cx="50" cy="50" r="45" fill="white" stroke="black" strokeWidth="6" />
@@ -506,17 +484,16 @@ export default function App() {
                             </svg>
                           </div>
                           
-                          <div className="mt-3 bg-white border border-black px-2 py-0.5 text-[10px] text-black font-bold font-mono">
+                          <div className="mt-3 bg-[#e0e0e0] border-2 border-gray-800 px-2 py-0.5 text-[9px] text-black font-bold font-mono rounded">
                             {captureState === 'throwing' && "몬스터볼 포착 전송!"}
                             {captureState === 'shaking' && "흔들림 신호 제어 중..."}
-                            {captureState === 'success' && "🎉 포획 완료! 도감 시스템 업데이트 완료."}
+                            {captureState === 'success' && "🎉 포획 완료! 도감 동기화 성공"}
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* 퀴즈 타이틀문 */}
                   <div className="text-center py-0.5">
                     <p className="text-[12px] font-bold text-black leading-tight">
                       ❓ 이 실루엣 속 1세대 포켓몬의 진짜 이름은?
@@ -546,7 +523,7 @@ export default function App() {
           </div>
         </div>
 
-
+        {}
         {/* ==================== 내 도감 화면 (Tab: Pokedex) ==================== */}
         <div 
           className={`absolute inset-0 p-2 flex flex-col justify-center items-center transition-transform duration-300 ${
@@ -621,13 +598,12 @@ export default function App() {
 
       </main>
 
-
-      {/* 4. 포켓몬 상세 정보 팝업 모달창 (공식 한국어 스토리/설명문 동적 연동) */}
+      {}
+      {/* 4. 포켓몬 상세 정보 팝업 모달창 */}
       {selectedPokedexItem && (
         <div className="absolute inset-0 bg-black/60 z-40 flex items-center justify-center p-4">
           <div className="win95-outset w-full max-w-sm flex flex-col bg-[#c0c0c0]">
             
-            {/* 상단바 */}
             <div className="win95-titlebar p-1 select-none flex items-center justify-between">
               <span className="text-xs font-bold">도감_스토리_프로파일.exe</span>
               <button 
@@ -638,11 +614,9 @@ export default function App() {
               </button>
             </div>
 
-            {/* 상세 내용 (스탯 대신 공식 스토리 정보 위주로 완전 재정비) */}
             <div className="p-4 bg-[#e0e0e0] flex flex-col gap-3.5 text-xs text-black overflow-y-auto max-h-[65vh]">
               
               <div className="flex gap-3">
-                {/* 썸네일 박스 */}
                 <div className="win95-inset bg-[#ffffff] w-20 h-20 flex items-center justify-center shrink-0 rounded">
                   <img 
                     src={selectedPokedexItem.sprite} 
@@ -651,7 +625,6 @@ export default function App() {
                   />
                 </div>
                 
-                {/* 기본 제원 프로필 */}
                 <div className="flex-1 flex flex-col justify-center gap-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] bg-red-600 text-white font-mono px-1 py-0.2 rounded font-bold">
@@ -673,7 +646,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 공식 도감 스토리 출력 박스 (CRT 모니터 그린 보드 스타일 구현) */}
+              {/* 공식 도감 스토리 출력 박스 (CRT 모니터 그린 보드 스타일) */}
               <div className="win95-inset p-3 bg-neutral-950 text-emerald-400 rounded flex flex-col gap-1.5 font-mono">
                 <div className="flex justify-between items-center border-b border-emerald-900 pb-1 text-[10px]">
                   <span>📠 DATABASE_FLAVOR_ENTRY_READ</span>
@@ -691,7 +664,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* 포획 메타데이터 */}
               <div className="flex justify-between items-center text-[9px] text-gray-500 font-mono mt-0.5">
                 <span>SYSTEM: RECORDED_SUCCESSFULLY</span>
                 <span>분석일시: {selectedPokedexItem.caughtAt || "불명"}</span>
@@ -699,7 +671,6 @@ export default function App() {
 
             </div>
 
-            {/* 모달 하단 */}
             <div className="p-2 border-t border-[#808080] bg-[#c0c0c0] flex justify-end">
               <button 
                 onClick={() => { playSfx('click'); setSelectedPokedexItem(null); }}
@@ -712,7 +683,7 @@ export default function App() {
         </div>
       )}
 
-
+      {}
       {/* 5. 에러/공지 다이얼로그 모달 */}
       {win95Notice.show && (
         <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -746,7 +717,7 @@ export default function App() {
         </div>
       )}
 
-
+      {}
       {/* 6. 하단 작업 표시줄 */}
       <footer className="h-11 bg-[#c0c0c0] border-t-2 border-t-white flex items-center justify-between px-1 select-none shrink-0 z-20">
         
